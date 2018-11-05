@@ -29,3 +29,11 @@ A typical usage scenario is to capture the output of a program in a file.  Using
 ## Library usage
 
 Curtail can also be integrated directly into an application instead of used on the command line.  Include the file curtail.h and link the application with -lcurtail.  After successfully calling crtl_init, the program's stdout will be directed to the specified file until crtl_term is called.
+
+## Logrotate comparision
+
+Curtail is not intended to be a replacement for logrotate.  They are fundamentally different.  Some of the notable differences are below:
+
+logrotate mitigates runaway files... curtail prevents them.  
+logrotate requires sysadmin... curtail does not.
+logrotate creates multiple files...  curtail only one.
