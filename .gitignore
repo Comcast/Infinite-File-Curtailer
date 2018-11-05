@@ -53,3 +53,21 @@ dkms.conf
 
 # Temp files
 *~
+
+# Autotools files
+Makefile.in
+aclocal.m4
+ar-lib
+autom4te.cache/
+compile
+config.guess
+config.h.in
+config.sub
+configure
+depcomp
+install-sh
+ltmain.sh
+m4/
+missing
+src/Makefile.in
+
