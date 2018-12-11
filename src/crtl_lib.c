@@ -22,6 +22,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <signal.h>
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -30,6 +31,8 @@
 #include <sys/stat.h>
 #include "curtail.h"
 #include "crtl_private.h"
+
+#define CRTL_SIGNAL_QTY (7)
 
 typedef enum {
    CRTL_EVENT_TERMINATE = 0,
@@ -52,15 +55,23 @@ typedef struct {
 } crtl_thread_params_t;
 
 typedef struct {
+   int              signum;
+   bool             installed;
+   struct sigaction act;
+} crtl_signals_t;
+
+typedef struct {
    crtl_log_level_t level;
    bool             initialized;
    bool             interactive;
-   bool             sig_quit;
+   crtl_signals_t   signals[CRTL_SIGNAL_QTY];
    uint64_t         out_file_size_max;
    uint64_t         out_file_size_cur;
    pthread_t        main_thread;
    sem_t            semaphore;
    int              fd_output;
+   int              fd_input_rd;
+   int              fd_input_wr;
    int              fd_event;
    int              fd_stdout;
    int              fd_stderr;
@@ -71,7 +82,6 @@ typedef struct {
 static crtl_global_t g_crtl = { .level              = CRTL_LEVEL_ERROR,
                                 .initialized        = false,
                                 .interactive        = false,
-                                .sig_quit           = false,
                                 .fd_output          = -1,
                                 .fd_event           = -1,
                                 .fd_stdout          = -1,
@@ -81,7 +91,15 @@ static crtl_global_t g_crtl = { .level              = CRTL_LEVEL_ERROR,
                                 .out_file_size_cur  = 0
                               };
 
+static bool  crtl_signals_register(void);
+static void  crtl_signals_unregister(void);
+static void  crtl_signal_handler(int signal);
+static void  crtl_abort(void);
 static void *crtl_main_thread(void *param);
+
+#if 0
+static void crtl_write_raw(const char *data, uint32_t size);
+#endif
 
 bool crtl_log_enabled(crtl_log_level_t level) {
    return(g_crtl.level <= level);
@@ -103,8 +121,15 @@ bool crtl_init(const char *filename, uint64_t size_max, crtl_log_level_t level, 
    
    g_crtl.interactive = false;
    
+   if(!crtl_signals_register()) {
+      LOG_ERROR("unable to register signals");
+      crtl_signals_unregister();
+      return(false);
+   }
+
    if(!crtl_file_open(filename, &g_crtl.fd_output, &g_crtl.logical_block_size, &g_crtl.out_file_size_cur)) {
       LOG_ERROR("unable to open output file");
+      crtl_signals_unregister();
       return(false);
    }
 
@@ -130,13 +155,17 @@ bool crtl_init(const char *filename, uint64_t size_max, crtl_log_level_t level, 
    int pipefd_input[2];
    int pipefd_event[2];
    if(pipe(pipefd_input) == -1) {
+      crtl_signals_unregister();
       return(false);
    }
    if(pipe(pipefd_event) == -1) {
       close(pipefd_input[1]);
+      crtl_signals_unregister();
       return(false);
    }
-   g_crtl.fd_event = pipefd_event[1];
+   g_crtl.fd_event    = pipefd_event[1];
+   g_crtl.fd_input_rd = pipefd_input[0];
+   g_crtl.fd_input_wr = pipefd_input[1];
 
    crtl_thread_params_t params;
    params.semaphore = &g_crtl.semaphore;
@@ -155,6 +184,7 @@ bool crtl_init(const char *filename, uint64_t size_max, crtl_log_level_t level, 
    }
 
    if(0 != pthread_create(&g_crtl.main_thread, NULL, crtl_main_thread, &params)) {
+      crtl_signals_unregister();
       return(false);
    }
 
@@ -305,6 +335,123 @@ void crtl_term(void) {
          crtl_close(g_crtl.fd_event);
          g_crtl.fd_event = -1;
       }
+      crtl_signals_unregister();
       g_crtl.initialized = false;
    }
+}
+
+// Signals - Handle all signals that result in a core dump.  Flush the output pipe, write to the file and raise the default signal handler.
+bool crtl_signals_register(void) {
+   memset(&g_crtl.signals, 0, sizeof(g_crtl.signals));
+
+   g_crtl.signals[0].signum = SIGQUIT;
+   g_crtl.signals[1].signum = SIGILL;
+   g_crtl.signals[2].signum = SIGABRT;
+   g_crtl.signals[3].signum = SIGFPE;
+   g_crtl.signals[4].signum = SIGSEGV;
+   g_crtl.signals[5].signum = SIGBUS;
+   g_crtl.signals[6].signum = SIGSYS;
+
+   for(uint8_t index = 0; index < CRTL_SIGNAL_QTY; index++) {
+      struct sigaction act;
+      memset(&act, 0, sizeof(act));
+
+      act.sa_handler = crtl_signal_handler;
+
+      int rc = sigaction(g_crtl.signals[index].signum, &act, &g_crtl.signals[index].act);
+      if(rc < 0) {
+         return(false);
+      }
+      g_crtl.signals[index].installed = true;
+   }
+   return(true);
+}
+
+void crtl_signals_unregister(void) {
+   for(uint8_t index = 0; index < CRTL_SIGNAL_QTY; index++) {
+      if(g_crtl.signals[index].installed) {
+         sigaction(g_crtl.signals[index].signum, &g_crtl.signals[index].act, NULL);
+         g_crtl.signals[index].installed = false;
+      }
+   }
+}
+
+void crtl_signal_handler(int signal) {
+   switch(signal) {
+      case SIGQUIT: {
+         crtl_abort();
+         sigaction(signal, &g_crtl.signals[0].act, NULL);
+         raise(signal);
+         break;
+      }
+      case SIGILL: {
+         crtl_abort();
+         sigaction(signal, &g_crtl.signals[1].act, NULL);
+         raise(signal);
+         break;
+      }
+      case SIGABRT: {
+         crtl_abort();
+         sigaction(signal, &g_crtl.signals[2].act, NULL);
+         raise(signal);
+         break;
+      }
+      case SIGFPE: {
+         crtl_abort();
+         sigaction(signal, &g_crtl.signals[3].act, NULL);
+         raise(signal);
+         break;
+      }
+      case SIGSEGV: {
+         crtl_abort();
+         sigaction(signal, &g_crtl.signals[4].act, NULL);
+         raise(signal);
+         break;
+      }
+      case SIGBUS: {
+         crtl_abort();
+         sigaction(signal, &g_crtl.signals[5].act, NULL);
+         raise(signal);
+         break;
+      }
+      case SIGSYS: {
+         crtl_abort();
+         sigaction(signal, &g_crtl.signals[6].act, NULL);
+         raise(signal);
+         break;
+      }
+      default: {
+         break;
+      }
+   }
+}
+
+#if 0
+void crtl_write_raw(const char *data, uint32_t size) {
+   crtl_process_input(g_crtl.fd_output, &g_crtl.out_file_size_cur, g_crtl.out_file_size_max, g_crtl.logical_block_size, data, size);
+   crtl_flush();
+}
+#endif
+
+// This function allows the program to flush data to disk when the program crashes
+void crtl_abort(void) {
+   if(!g_crtl.interactive) {
+      // Flush the write side of the pipe
+      fflush(stdout);
+      //fsync(STDOUT_FILENO);
+      //fsync(g_crtl.fd_input_wr);
+
+      // Set input to non-blocking
+      int flags = fcntl(g_crtl.fd_input_rd, F_GETFL, 0);
+      fcntl(g_crtl.fd_input_rd, F_SETFL, flags | O_NONBLOCK);
+
+      // Attempt one more read from input fd in case there is unprocessed data
+      int rc = crtl_read(g_crtl.fd_input_rd, g_crtl.buffer, sizeof(g_crtl.buffer));
+      if(rc > 0) { // Process the data
+         crtl_process_input(g_crtl.fd_output, &g_crtl.out_file_size_cur, g_crtl.out_file_size_max, g_crtl.logical_block_size, g_crtl.buffer, rc);
+      }
+   }
+
+   // Flush the data to the file
+   crtl_flush();
 }
