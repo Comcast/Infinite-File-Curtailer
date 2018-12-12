@@ -36,7 +36,7 @@ extern "C"
 #endif
 
 bool crtl_init(const char *filename, uint64_t size_max, crtl_log_level_t level, bool include_stderr);
-int  crtl_flush(void);
+int  crtl_fsync(void);
 void crtl_term(void);
 
 #ifdef __cplusplus

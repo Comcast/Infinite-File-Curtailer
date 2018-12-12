@@ -273,7 +273,7 @@ void *crtl_main_thread(void *param) {
    return(NULL);
 }
 
-int crtl_flush(void) {
+int crtl_fsync(void) {
    if(!g_crtl.initialized) {
       errno = 0;
       return(-1);
@@ -329,7 +329,7 @@ void crtl_term(void) {
          }
       }
 
-      crtl_flush();
+      crtl_fsync();
       crtl_file_close(&g_crtl.fd_output);
       if(g_crtl.fd_event >= 0) {
          crtl_close(g_crtl.fd_event);
@@ -429,17 +429,18 @@ void crtl_signal_handler(int signal) {
 #if 0
 void crtl_write_raw(const char *data, uint32_t size) {
    crtl_process_input(g_crtl.fd_output, &g_crtl.out_file_size_cur, g_crtl.out_file_size_max, g_crtl.logical_block_size, data, size);
-   crtl_flush();
+   crtl_fsync();
 }
 #endif
 
 // This function allows the program to flush data to disk when the program crashes
+// IMPORTANT: must be signal safe
 void crtl_abort(void) {
    if(!g_crtl.interactive) {
-      // Flush the write side of the pipe
-      fflush(stdout);
-      //fsync(STDOUT_FILENO);
-      //fsync(g_crtl.fd_input_wr);
+      if(0 == ftrylockfile(stdout)) { // lock obtained. proceed to flush stdout
+         fflush_unlocked(stdout);
+         funlockfile(stdout);
+      }
 
       // Set input to non-blocking
       int flags = fcntl(g_crtl.fd_input_rd, F_GETFL, 0);
@@ -453,5 +454,5 @@ void crtl_abort(void) {
    }
 
    // Flush the data to the file
-   crtl_flush();
+   crtl_fsync();
 }
