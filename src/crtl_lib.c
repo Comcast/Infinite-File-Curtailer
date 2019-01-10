@@ -23,6 +23,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <signal.h>
+#include <inttypes.h>
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -146,8 +147,8 @@ bool crtl_init(const char *filename, uint64_t size_max, crtl_log_level_t level, 
    
    LOG_INFO("output file <%s>", filename);
    LOG_INFO("logical block size %u bytes", g_crtl.logical_block_size);
-   LOG_INFO("current file size %llu bytes", g_crtl.out_file_size_cur);
-   LOG_INFO("maximum file size %llu bytes", g_crtl.out_file_size_max);
+   LOG_INFO("current file size %" PRIu64 " bytes", g_crtl.out_file_size_cur);
+   LOG_INFO("maximum file size %" PRIu64 " bytes", g_crtl.out_file_size_max);
 
    // Initialize semaphore
    sem_init(&g_crtl.semaphore, 0, 0);

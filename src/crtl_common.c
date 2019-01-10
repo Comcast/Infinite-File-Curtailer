@@ -17,6 +17,7 @@
  */
 
 #include <string.h>
+#include <inttypes.h>
 #include <errno.h>
 #include <fcntl.h>
 #include "curtail.h"
@@ -85,7 +86,7 @@ int crtl_process_input(int fd, uint64_t *file_size_cur, uint64_t file_size_max, 
          LOG_ERROR("error fallocate output file <%s>", strerror(errsv));
          return(-1);
       } else {
-         LOG_DEBUG("truncated output file from %llu to %llu bytes(numblocks: %d)",
+         LOG_DEBUG("truncated output file from %" PRIu64 " to %" PRIu64 " bytes(numblocks: %d)",
             *file_size_cur, *file_size_cur - (logical_block_size * numblocks), numblocks);
             *file_size_cur -= (logical_block_size * numblocks);
 

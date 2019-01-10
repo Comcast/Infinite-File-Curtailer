@@ -23,6 +23,7 @@
 #include <stdbool.h>
 #include <errno.h>
 #include <unistd.h>
+#include <inttypes.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <signal.h>
@@ -169,7 +170,7 @@ bool crtl_cmdline_args(int argc, char *argv[]) {
    argp_parse(&argp, argc, argv, 0, 0, &g_crtl);
    
    LOG_INFO("log level <%s>",  crtl_log_level_str(g_crtl.level));
-   LOG_INFO("output file size <%llu>", g_crtl.out_file_size_max);
+   LOG_INFO("output file size <%" PRIu64 ">", g_crtl.out_file_size_max);
    LOG_INFO("output file path <%s>",   g_crtl.out_file_path);
    
    if(g_crtl.out_file_size_max % DEFAULT_SECTOR_SIZE) {
@@ -196,7 +197,7 @@ bool crtl_main_init(void) {
    }
    
    LOG_INFO("logical block size %u bytes", g_crtl.logical_block_size);
-   LOG_INFO("current file size %llu bytes", g_crtl.out_file_size_cur);
+   LOG_INFO("current file size %" PRIu64 " bytes", g_crtl.out_file_size_cur);
 
    return(true);
 }
