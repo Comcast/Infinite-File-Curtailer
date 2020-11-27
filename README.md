@@ -30,6 +30,7 @@ A typical usage scenario is to capture the output of a program in a file.  Using
 
 Curtail uses autotools (must be installed on the local system).  To build curtail locally, please run the following commands from the base dir of the project:
 
+```
 libtoolize
 aclocal
 autoheader
@@ -37,11 +38,13 @@ autoconf
 automake
 ./configure
 make
+```
 
 To install in the local system, run the following additional command with appropriate priviledges:
 
+```
 make install
-
+```
 
 ## Library usage
 
