@@ -28,14 +28,22 @@ A typical usage scenario is to capture the output of a program in a file.  Using
 
 ## Build instructions
 
-Curtail uses autotools (must be installed on the local system).  To build curtail locally, please run the following commands from the base dir of the project:
+Curtail uses autotools (must be installed on the local system).  If not already installed, install the tools using the following commands with the appropriate package manager (apt, yum, etc) for your system:
+
+```
+sudo apt install libtool
+sudo apt install automake
+sudo apt install autoconf
+```
+
+To build curtail locally, please run the following commands from the base dir of the project:
 
 ```
 libtoolize
 aclocal
 autoheader
 autoconf
-automake
+automake --add-missing
 ./configure
 make
 ```
@@ -43,7 +51,7 @@ make
 To install in the local system, run the following additional command with appropriate priviledges:
 
 ```
-make install
+sudo make install
 ```
 
 ## Library usage
