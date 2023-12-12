@@ -90,8 +90,8 @@ int crtl_fallocate(int fd, int mode, off_t offset, off_t len) {
 }
 
 // Perform seek while ignoring signals
-int crtl_seek(int fd, off_t offset, int whence) {
-   int rc;
+off_t crtl_seek(int fd, off_t offset, int whence) {
+   off_t rc;
    do {
       errno = 0;
       rc    = lseek(fd, offset, whence);
