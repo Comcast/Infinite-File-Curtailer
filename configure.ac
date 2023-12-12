@@ -23,7 +23,7 @@ LT_INIT
 
 AC_PROG_CC
 
-CFLAGS+=" -std=c11 -fPIC -D_REENTRANT -D_GNU_SOURCE -Wall -Werror -rdynamic"
+CFLAGS+=" -std=c11 -fPIC -D_REENTRANT -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -Wall -Werror -rdynamic"
 
 AC_CONFIG_MACRO_DIRS([m4])
 AC_CONFIG_HEADERS([config.h])

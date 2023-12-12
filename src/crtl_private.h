@@ -44,17 +44,17 @@ const char *crtl_log_level_str(crtl_log_level_t level);
 #define LOG_WARN(FORMAT, ...);  do {if(crtl_log_enabled(CRTL_LEVEL_WARN))  { fprintf(stderr, "%s: WARN  :" FORMAT "\n", __FUNCTION__, ##__VA_ARGS__);}} while(0)
 #define LOG_ERROR(FORMAT, ...); do {if(crtl_log_enabled(CRTL_LEVEL_ERROR)) { fprintf(stderr, "%s: ERROR :" FORMAT "\n", __FUNCTION__, ##__VA_ARGS__);}} while(0)
 
-int crtl_open(const char *pathname, int flags, mode_t mode);
-int crtl_close(int fd);
-int crtl_fstat(int fd, struct stat *buf);
-int crtl_read(int fd, void *buf, size_t count);
-int crtl_fallocate(int fd, int mode, off_t offset, off_t len);
-int crtl_seek(int fd, off_t offset, int whence);
-int crtl_write(int fd, const void *buf, size_t count);
+int   crtl_open(const char *pathname, int flags, mode_t mode);
+int   crtl_close(int fd);
+int   crtl_fstat(int fd, struct stat *buf);
+int   crtl_read(int fd, void *buf, size_t count);
+int   crtl_fallocate(int fd, int mode, off_t offset, off_t len);
+off_t crtl_seek(int fd, off_t offset, int whence);
+int   crtl_write(int fd, const void *buf, size_t count);
 
-bool crtl_file_open(const char *filename, int *fd, uint32_t *block_size, uint64_t *file_size);
-void crtl_file_close(int *fd);
-int  crtl_process_input(int fd, uint64_t *file_size_cur, uint64_t file_size_max, uint32_t logical_block_size, const char *buffer, uint32_t data_size);
+bool  crtl_file_open(const char *filename, int *fd, uint32_t *block_size, uint64_t *file_size);
+void  crtl_file_close(int *fd);
+int   crtl_process_input(int fd, uint64_t *file_size_cur, uint64_t file_size_max, uint32_t logical_block_size, const char *buffer, uint32_t data_size);
 
 #ifdef __cplusplus
 }
